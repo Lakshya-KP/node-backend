@@ -7,20 +7,43 @@ export class TaskService {
 
     async findAll(userId: number, query: TaskQuery) {
         const skip = (query.page - 1) * query.limit;
-        const tasks= await prisma.task.findMany({
-            where: {
-                userId
-            },
-            skip,
-            take: query.limit,
-            orderBy: {
-                createdAt: "desc"
-            }
-        });
+
+        const where = {
+            userId,
+            ...(query.completed !== undefined && { completed: query.completed }),
+            ...(query.search && { title: { contains: query.search }})
+        }
+
+        const orderBy = {
+            [query.sort]: query.order
+        }
+
+        const [tasks, total] = await prisma.$transaction([
+            prisma.task.findMany({
+                where,
+                orderBy,
+                skip,
+                take: query.limit
+            }),
+            prisma.task.count({
+                where
+            })
+        ])
         if (!tasks) {
             throw new NotFoundError();
         }
-        return tasks;
+        return {
+            tasks,
+            meta: {
+                page: query.page,
+                limit: query.limit,
+                total,
+                totalPages: Math.ceil(total / query.limit),
+                hasNextPage: skip + tasks.length < total,
+                hasPreviousPage: query.page > 1
+            } 
+
+        }
     }
 
     async findById(id: number, userId: number) {

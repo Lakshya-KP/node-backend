@@ -7,16 +7,20 @@ export class TaskController {
 
     constructor(
         private readonly taskService: TaskService
-    ) {}
+    ) { }
 
     findAll = async (
         req: TypedRequest<{}, {}, TaskQuery>,
         res: Response
     ) => {
 
-        const tasks = await this.taskService.findAll(req.user.userId, req.query);
+        const result = await this.taskService.findAll(req.user.userId, req.query);
 
-        res.json(tasks);
+        res.json({
+            success: true,
+            data: result.tasks,
+            meta: result.meta
+        });
 
     };
 
