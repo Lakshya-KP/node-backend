@@ -1,11 +1,13 @@
-function getEnv(name: string): string {
-    const value = process.env[name];
+import { z } from "zod";
 
-    if(!value) throw new Error(`Missing environment variable: ${name}`);
+const envSchema = z.object({
+    PORT: z.coerce.number().default(3000),
 
-    return value;
-}
+    DATABASE_URL: z.string().min(1),
 
-export const env = {
-    JWT_SECRET: getEnv("JWT_SECRET"),
-}
+    JWT_SECRET: z.string().min(32, "JWT_SECRET must be at least 32 characters"),
+
+    JWT_EXPIRES_IN: z.string().default("15m"),
+});
+
+export const env = envSchema.parse(process.env);

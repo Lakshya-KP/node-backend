@@ -2,6 +2,7 @@ import { AppError } from "../../common/errors/AppError.js";
 import { NotFoundError } from "../../common/errors/NotFoundError.js";
 import prisma from "../../config/prisma.js";
 import { TaskQuery } from "./task.validator.js";
+import { buildPaginationMeta } from "../../common/utils/pagination.js";
 
 export class TaskService {
 
@@ -34,14 +35,12 @@ export class TaskService {
         }
         return {
             tasks,
-            meta: {
+            meta: buildPaginationMeta({
                 page: query.page,
                 limit: query.limit,
                 total,
-                totalPages: Math.ceil(total / query.limit),
-                hasNextPage: skip + tasks.length < total,
-                hasPreviousPage: query.page > 1
-            } 
+                itemCount: tasks.length
+            })
 
         }
     }
