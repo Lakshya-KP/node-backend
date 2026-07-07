@@ -12,7 +12,7 @@ export function createAuthenticationMiddleware(jwtService: JwtService) {return (
     if (schema !== "Bearer" || !token) throw new UnauthorizedError("Invalid Authorization Header");
 
     try {
-        req.user = jwtService.verifyToken(token);
+        req.user = jwtService.verifyAccessToken(token);
         next();
     } catch {
         throw new UnauthorizedError("Invalid or Expired Token");
