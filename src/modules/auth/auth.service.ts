@@ -64,8 +64,52 @@ export class AuthService {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7);
 
-        await this.refreshTokenService.createSession(user.id, refreshToken, expiresAt);
+        await this.refreshTokenService.createSession(prisma, user.id, refreshToken, expiresAt);
 
         return { token, refreshToken, user: { id: user.id, name: user.name, email: user.email } };
+    }
+
+    async refresh(refreshToken: string){
+        const session = await this.refreshTokenService.findSession(prisma, refreshToken);
+        if(!session){
+            throw new UnauthorizedError("Invalid refresh token");
+        }
+
+        if(session.revokedAt){
+            throw new UnauthorizedError("Refresh token revoked");
+        }
+
+        if(session.expiresAt < new Date()){
+            throw new UnauthorizedError("Refresh token expired");
+        }
+
+        const user = await prisma.user.findUnique({
+            where: {
+                id: session.userId
+            }
+        })
+
+        if(!user){
+            throw new UnauthorizedError("User not found");
+        }
+
+        const accessToken = this.jwtService.generateAccessToken({
+            userId: user.id,
+            email: user.email,
+            role: user.role
+        });
+
+        const newRefreshToken = this.refreshTokenService.generate();
+
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7);
+
+        await prisma.$transaction(async (tx) => {
+            await this.refreshTokenService.revokeSession(tx, refreshToken);
+            await this.refreshTokenService.createSession(tx, user.id, newRefreshToken, expiresAt);
+        })
+
+
+        return { accessToken: accessToken, refreshToken: newRefreshToken };
     }
 }

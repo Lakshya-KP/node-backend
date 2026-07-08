@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import prisma from '../../config/prisma.js';
+import { PrismaExecutor } from '../types/prima.types.js';
 
 export class RefreshTokenService {
     generate(): string {
@@ -10,9 +11,9 @@ export class RefreshTokenService {
         return crypto.createHash('sha256').update(token).digest('hex');
     }
 
-    async createSession(userId: number, refreshToken: string, expiresAt: Date) {
+    async createSession(db: PrismaExecutor, userId: number, refreshToken: string, expiresAt: Date) {
         const tokenHash = this.hashToken(refreshToken);
-        return prisma.refreshToken.create({
+        return db.refreshToken.create({
             data: {
                 tokenHash, 
                 userId,
@@ -21,18 +22,18 @@ export class RefreshTokenService {
         })
     }
 
-    async findSession(refreshToken: string){
+    async findSession(db: PrismaExecutor, refreshToken: string){
         const tokenHash = this.hashToken(refreshToken);
-        return prisma.refreshToken.findUnique({
+        return db.refreshToken.findUnique({
             where: {
                 tokenHash
             }
         })
     }
 
-    async revokeSession(refreshToken: string){
+    async revokeSession(db: PrismaExecutor, refreshToken: string){
         const tokenHash = this.hashToken(refreshToken);
-        await prisma.refreshToken.update({
+        await db.refreshToken.update({
             where: {
                 tokenHash
             },
