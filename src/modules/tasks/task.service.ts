@@ -3,33 +3,18 @@ import { NotFoundError } from "../../common/errors/NotFoundError.js";
 import prisma from "../../config/prisma.js";
 import { TaskQuery } from "./task.validator.js";
 import { buildPaginationMeta } from "../../common/utils/pagination.js";
+import { TaskRepository } from "./task.repository.js";
 
 export class TaskService {
 
+    constructor(private readonly taskRepository: TaskRepository){}
+
     async findAll(userId: number, query: TaskQuery) {
-        const skip = (query.page - 1) * query.limit;
-
-        const where = {
-            userId,
-            ...(query.completed !== undefined && { completed: query.completed }),
-            ...(query.search && { title: { contains: query.search }})
-        }
-
-        const orderBy = {
-            [query.sort]: query.order
-        }
-
-        const [tasks, total] = await prisma.$transaction([
-            prisma.task.findMany({
-                where,
-                orderBy,
-                skip,
-                take: query.limit
-            }),
-            prisma.task.count({
-                where
-            })
-        ])
+        const {tasks, total} = await prisma.$transaction(async (tx) => {
+            const tasks = await this.taskRepository.findAll(tx, userId, query);
+            const total = await this.taskRepository.count(tx, userId, { ...query, search: query.search });
+            return { tasks, total };
+        });
         if (!tasks) {
             throw new NotFoundError();
         }
@@ -46,12 +31,7 @@ export class TaskService {
     }
 
     async findById(id: number, userId: number) {
-        const task = await prisma.task.findUnique({
-            where: {
-                id,
-                userId
-            }
-        });
+        const task = await this.taskRepository.findById(prisma, { id, userId });
         if (!task) {
             throw new NotFoundError(`Task with ID: ${id} not found`);
         }
@@ -59,13 +39,7 @@ export class TaskService {
     }
 
     async update(id: number, userId: number, data: { title: string }) {
-        const updatedTask = await prisma.task.updateMany({
-            where: {
-                id,
-                userId
-            },
-            data
-        });
+        const updatedTask = await this.taskRepository.update(prisma, { id, userId, ...data });
         if (!updatedTask) {
             throw new AppError(500, "Error in updating a task");
         }
@@ -73,12 +47,7 @@ export class TaskService {
     }
 
     async delete(id: number, userId: number) {
-        const deletedTask = await prisma.task.deleteMany({
-            where: {
-                id,
-                userId
-            }
-        });
+        const deletedTask = await this.taskRepository.delete(prisma, { id, userId });
         if (!deletedTask) {
             throw new AppError(500, "Error in deleting a task");
         }
@@ -86,12 +55,7 @@ export class TaskService {
     }
 
     async create(title: string, userId: number) {
-        const createdTask = await prisma.task.create({
-            data: {
-                title,
-                userId
-            }
-        });
+        const createdTask = await this.taskRepository.create(prisma, { title, userId });
         if (!createdTask) {
             throw new AppError(500, "Error in creating a task");
         }

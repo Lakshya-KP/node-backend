@@ -11,24 +11,31 @@ import { createAuthenticationMiddleware } from "./common/middleware/authenticati
 import { createUserRouter } from "./modules/users/user.routes.js";
 import { UserService } from "./modules/users/user.service.js";
 import { UserController } from "./modules/users/user.controller.js";
+import { UserRepository } from "./modules/users/repositories/user.repository.js";
 import { RefreshTokenService } from "./common/services/refresh-token.service.js";
+import { RefreshTokenRepository } from "./modules/auth/repositories/refresh-token.repository.js";
+import { TaskRepository } from "./modules/tasks/task.repository.js";
 
 const app = express();
 app.use(express.json());
 
 const jwtService = new JwtService();
-const refreshTokenService = new RefreshTokenService();
+const refreshTokenRepository = new RefreshTokenRepository();
+const refreshTokenService = new RefreshTokenService(refreshTokenRepository);
 const authenticationMiddleware = createAuthenticationMiddleware(jwtService);
 
-const taskService = new TaskService();
+const taskRepository = new TaskRepository();
+const taskService = new TaskService(taskRepository);
 const taskController = new TaskController(taskService);
 app.use("/tasks", createTaskRouter(taskController, authenticationMiddleware));
 
-const authService = new AuthService(jwtService, refreshTokenService);
+const userRepository = new UserRepository();
+const userService = new UserService(userRepository);
+
+const authService = new AuthService(jwtService, refreshTokenService, userService);
 const authController = new AuthController(authService);
 app.use("/auth", createAuthRouter(authController, authenticationMiddleware));
 
-const userService = new UserService();
 const userController = new UserController(userService);
 app.use("/user", createUserRouter(userController, authenticationMiddleware))
 
