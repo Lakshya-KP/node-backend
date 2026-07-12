@@ -3,8 +3,7 @@ import { AuthService } from "./auth.service.js";
 import { TypedRequest } from "../../common/types/http.types.js";
 import { LoginBody, RegisterBody } from "./auth.validator.js";
 import { successResponse } from "../../common/utils/response.js";
-import { refreshTokenSchema } from "./auth.validator.js";
-import { logoutSchema } from "./auth.validator.js";
+import { cookieConfig } from "../../config/cookie.js";
 
 export class AuthController {
     constructor(private readonly authService: AuthService){}
@@ -16,13 +15,16 @@ export class AuthController {
 
     login = async (req: TypedRequest<LoginBody>, res: Response) => {
         const result = await this.authService.login(req.body);
-        res.json(successResponse(result));
+        res.cookie("refreshToken", result.refreshToken, cookieConfig.refreshToken);
+        res.json(successResponse({ accessToken: result.token }));
     }
 
     logout = async (req: Request, res: Response, next: NextFunction) => {
         try{
-            const body = logoutSchema.parse(req.body);
-            await this.authService.logout(body.refreshToken);
+            // const body = logoutSchema.parse(req.body);
+            const refreshToken = req.cookies.refreshToken;
+            await this.authService.logout(refreshToken);
+            res.clearCookie("refreshToken", cookieConfig.refreshToken);
         } catch(err){
             next(err);
         }
@@ -39,8 +41,10 @@ export class AuthController {
 
     refresh = async(req: TypedRequest<{ refreshToken: string }>, res: Response, next: NextFunction) => {
         try{
-            const token = await this.authService.refresh(req.body.refreshToken);
-            res.json(successResponse(token));
+            const refreshToken = req.cookies.refreshToken;
+            const tokens = await this.authService.refresh(refreshToken);
+            res.cookie("refreshToken", tokens.refreshToken, cookieConfig.refreshToken);
+            res.json(successResponse({ accessToken: tokens.accessToken }));
         } catch(err){
             next(err);
         }
